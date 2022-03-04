@@ -184,7 +184,7 @@ pub trait Manager: Send + Sync + 'static {
 
     /// Attempts to close the connection. This function is called when the pool is shutting down,
     /// and is useful for [...]
-    async fn close(&self, conn: &mut Self::Connection) -> Result<(), Self::Error> {
+    async fn close(&self, conn: Self::Connection) -> Result<(), Self::Error> {
         let _ = conn;
         Ok(())
     }
@@ -600,12 +600,13 @@ impl<M: Manager> Pool<M> {
         }
     }
 
+    /// Does some clean up on the pool.
     pub async fn shutdown(self) -> Result<(), M::Error> {
         let mut internals = self.0.internals.lock().await;
         let mut err = None;
         for c in &mut internals.free_conns {
-            let mut c = c.raw.take().unwrap();
-            match self.0.manager.close(&mut c).await {
+            let c = c.raw.take().unwrap();
+            match self.0.manager.close(c).await {
                 Err(e) => {
                     err = Some(e);
                 }
